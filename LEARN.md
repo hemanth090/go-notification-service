@@ -560,7 +560,7 @@ browser (index.html) --POST--> createHandler (server.go)
 ## Run the real thing
 
 ```bash
-cd '/Users/hemanth/Desktop/system design'
+cd go-notification-service
 go run .
 ```
 Open http://localhost:8080 and send a notification.

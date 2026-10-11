@@ -7,7 +7,7 @@ package, plain names, short functions, no interfaces.
 ## Run it
 
 ```bash
-cd '/Users/hemanth/Desktop/system design'
+cd go-notification-service
 go run .
 ```
 
