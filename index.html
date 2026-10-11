@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d;
+    --text: #e6edf3; --muted: #8b949e; --accent: #2f81f7;
+    --sent: #238636; --failed: #da3633; --pending: #9e6a03;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, system-ui, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 20px; margin-bottom: 24px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, select, textarea {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px;
+    font: inherit;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+  button {
+    margin-top: 16px; width: 100%; background: var(--accent); color: #fff;
+    border: 0; border-radius: 6px; padding: 11px; font: inherit;
+    font-weight: 600; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  .item {
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .top { display: flex; align-items: center; gap: 10px; }
+  .badge {
+    font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px;
+    margin-left: auto;
+  }
+  .badge.sent    { background: rgba(35,134,54,.2);  color: #3fb950; }
+  .badge.failed  { background: rgba(218,54,51,.2);  color: #ff7b72; }
+  .badge.pending { background: rgba(158,106,3,.2);  color: #d29922; }
+  .to { color: var(--muted); font-size: 13px; }
+  .subj { margin-top: 4px; }
+  .err { color: #ff7b72; font-size: 13px; margin-top: 4px; }
+  .empty { color: var(--muted); text-align: center; padding: 24px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notifications</h1>
+  <p class="sub">Queue a notification and watch it get delivered with retries.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Channel</label>
+        <select id="channel">
+          <option value="email">Email</option>
+          <option value="webhook">Webhook</option>
+          <option value="inapp">In-app</option>
+        </select>
+      </div>
+      <div>
+        <label id="toLabel">To</label>
+        <input id="recipient" placeholder="ada@example.com">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Subject</label>
+        <input id="subject" placeholder="Welcome!">
+      </div>
+    </div>
+    <label>Message</label>
+    <textarea id="body" placeholder="Your notification text..."></textarea>
+    <button onclick="send()">Send notification</button>
+  </div>
+
+  <div class="card">
+    <h2>Recent</h2>
+    <div id="list"></div>
+  </div>
+</div>
+
+<script>
+  const channelSelect = document.getElementById('channel');
+  const recipientInput = document.getElementById('recipient');
+  const recipientLabel = document.getElementById('toLabel');
+  const listContainer = document.getElementById('list');
+
+  // The webhook channel needs a URL, so the placeholder changes with it.
+  channelSelect.onchange = () => {
+    if (channelSelect.value === 'webhook') {
+      recipientLabel.textContent = 'Webhook URL';
+      recipientInput.placeholder = 'https://example.com/hook';
+    } else if (channelSelect.value === 'inapp') {
+      recipientLabel.textContent = 'User';
+      recipientInput.placeholder = 'user-42';
+    } else {
+      recipientLabel.textContent = 'To';
+      recipientInput.placeholder = 'ada@example.com';
+    }
+  };
+
+  async function send() {
+    const message = {
+      channel: channelSelect.value,
+      recipient: recipientInput.value.trim(),
+      subject: document.getElementById('subject').value,
+      body: document.getElementById('body').value,
+    };
+    if (!message.recipient) return alert('Recipient is required');
+
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message),
+    });
+    if (!response.ok) return alert('Could not send: ' + (await response.json()).error);
+
+    document.getElementById('subject').value = '';
+    document.getElementById('body').value = '';
+    load();
+  }
+
+  async function load() {
+    const response = await fetch('/api/notifications');
+    const allNotifications = await response.json();
+
+    listContainer.innerHTML = allNotifications.length
+      ? allNotifications.map(item => `
+        <div class="item">
+          <div class="top">
+            <span>${item.channel}</span>
+            <span class="to">${item.recipient}</span>
+            <span class="badge ${item.status}">${item.status}</span>
+          </div>
+          <div class="subj">${item.subject || ''}</div>
+          ${item.lastError ? `<div class="err">${item.lastError}</div>` : ''}
+        </div>`).join('')
+      : '<div class="empty">No notifications yet</div>';
+  }
+
+  load();
+  setInterval(load, 2000);
+</script>
+</body>
+</html>
